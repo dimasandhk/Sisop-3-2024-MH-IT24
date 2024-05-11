@@ -15,7 +15,8 @@
 #include <arpa/inet.h>
 #define	 MAXLINE	1024
 #define	 SA		struct sockaddr
-#define	 PORT		51184
+#define	 PORT		62192
+#define	 MAXFD		64
 
 struct sockaddr_in servaddr;
 int	sockfd, n;
@@ -24,32 +25,32 @@ char	buff[MAXLINE];
 int
 main()
 {
-	if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)	/* create tcp connection */
-		printf("[-]socket generation\n");
+	for ( ; ; ) {
+		if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)	/* create tcp connection */
+			printf("[-]socket generation\n");
 
-	/* specify IP address and port  */
-	bzero(&servaddr, sizeof(servaddr));
-	servaddr.sin_family 	= AF_INET;
-	servaddr.sin_port 	= htons(PORT);
-	if (inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr) <= 0)
-		printf("[-]inet_pton error\n");
+		/* specify IP address and port  */
+		bzero(&servaddr, sizeof(servaddr));
+		servaddr.sin_family 	= AF_INET;
+		servaddr.sin_port 	= htons(PORT);
+		if (inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr) <= 0)
+			printf("[-]inet_pton error\n");
+		
+		if (connect(sockfd, (SA *) &servaddr, sizeof(servaddr)) < 0) /* connect to server */
+			printf("[-]connect error\n");
 
-	if (connect(sockfd, (SA *) &servaddr, sizeof(servaddr)) < 0) /* connect to server */
-		printf("[-]connect error\n");
+		/* sending command to server */
+		printf("[Driver]: ");
+		fgets(buff, sizeof(buff), stdin);
+		write(sockfd, buff, strlen(buff));
 
-	/* sending command to server */
-	fgets(buff, sizeof(buff), stdin);
-	write(sockfd, buff, strlen(buff));
-
-	/* read server response */
-	while ( (n = read(sockfd, buff, MAXLINE) ) > 0) {
-		buff[n] = 0;
-		if (fputs(buff, stdout) == EOF)
-			printf("[-]fputs error\n");
-	}	
-	if (n < 0)
-		printf("[-]read error\n");
-
-
-	exit(0);
+		/* read server response */
+		while ( (n = read(sockfd, buff, MAXLINE) ) > 0) {
+			buff[n] = 0;
+			if (fputs(buff, stdout) == EOF)
+				printf("[-]fputs error\n");
+		}	
+		if (n < 0)
+			printf("[-]read error\n");
+	}
 }

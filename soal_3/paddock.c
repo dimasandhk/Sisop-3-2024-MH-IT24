@@ -9,15 +9,19 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "actions.c"	 /* to outsource functions */
+#include <signal.h>
+#include <fcntl.h>
 
 /* socket related */
 #include <sys/socket.h>	
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#define	 MAXFD		64
 #define	 MAXLINE 	1024
+#define	 PORT		62192
 #define	 SA		struct sockaddr
-#define	 PORT		51184
+
+#include "actions.c"	 /* to outsource functions */
 
 struct sockaddr_in servaddr;
 int	listenfd, connfd;
@@ -26,6 +30,9 @@ char	buff[MAXLINE], argv1[50], argv2[50];
 int
 main()
 {
+	if (be_daemon() != 0)
+		printf("[-]daemon error");		/* turn to daemon*/
+	
 	listenfd = socket(AF_INET, SOCK_STREAM, 0);	/* socket creation */
 	
 	/* bound server port to socket */
@@ -47,15 +54,24 @@ main()
 		read(connfd, buff, sizeof(buff));
 		sscanf(buff, "%[^ ] %[^\n]\n", argv1, argv2);
 
-		if ( !(strcmp(argv1, "fuel")) )
+		if ( !(strcmp(argv1, "gap")) ) {
 			logs("Driver", buff);
 			gap(atof(argv2), buff);
-
-
-		
-		//snprintf(buff, sizeof(buff), "sax");
+		} else if ( !(strcmp(argv1, "fuel")) ) {
+			logs("Driver", buff);
+			fuel(atof(argv2), buff);
+		} else if ( !(strcmp(argv1, "tire")) ) {
+			logs("Driver", buff);
+			tire(atof(argv2), buff);
+		}  else if ( !(strcmp(argv1, "tire-change")) ) {
+			logs("Driver", buff);
+			tire_change(argv2, buff);
+		} else {
+			bzero(buff, sizeof(buff));
+		}
 
 		write(connfd, buff, strlen(buff));
+		bzero(buff, sizeof(buff));
 		close(connfd);		/* close connection */
 	}
 
