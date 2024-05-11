@@ -508,3 +508,44 @@ cara menggunakan pipes, awalnya saya gatau caranya, ternyata ngikutin modul saja
 <img src="./img/preview21.png" />
 hasil histori.log:
 <img src="./img/preview22.png" />
+
+# Soal 3 - Driver & Paddock
+*Thio BIlly - 5027231007*
+
+Project about client-server interaction using socket programming. 
+
+```
+ ./
+├── client
+│   ├── driver
+│   └── driver.c
+└── server
+    ├── actions.c
+    ├── paddock
+    ├── paddock.c
+    └── race.log
+
+3 directories, 6 files
+```
+*Fig. 1 Overview of tree files from this project*
+
+![https://pomf2.lain.la/f/2xcc0mfe.png](https://pomf2.lain.la/f/2xcc0mfe.png)
+*Fig. 2 Process of socket interface between client and server*
+
+
+## Part 1: driver
+
+Binary file that act as client, where it sends an input to the server and waits until it got a response back. After each response, it will close the connection and make a new one, ready to take another input. Most, if not all, interaction is about asking `paddock` what to do based-off information given from message sent to server. Something along the lines of *"Fuel 10%. What do?"* and replied with *"Refuel. Now"*
+
+## Part 2: paddock
+Another binary file that act as server. It listens to its own port for any upcoming request from client. Upon receiving a request, it will run one functions from `actions.c` depending on what the request is about. Kind of like the example at end of part 1. The server will run on daemon mode since start and on loop, waiting for client while not having any.
+
+## Part 3: actions.c
+Local library for `paddock.c`. Full of custom functions that will process all client's request and some more. The type of requests are: gap status, fuel status, tire status, and tire type. Other that dealing with requests, this library provide a way to run the server on the backgorund, aka. on daemon. Also it put logs onto race.log, which brings us to..
+
+## Part 4: race.log
+All recordings of client-server interactions. All write is from `paddock` binary using `actions.c` library. The log format are as follow: 
+
+``[Driver] [07/04/2024 08:34:50]: Fuel 55``
+
+Actor, dates, and its message.
