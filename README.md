@@ -549,3 +549,531 @@ All recordings of client-server interactions. All write is from `paddock` binary
 ``[Driver] [07/04/2024 08:34:50]: Fuel 55``
 
 Actor, dates, and its message.
+
+# Soal 4
+3\. client.c
+
+Yang pertama saya membuat constraint untuk menentukan alamat server dan port serta ukuran buffer untuk menyimpan pesan.
+
+```c
+#define SERVER\_ADDRESS "127.0.0.1"
+
+#define PORT 8080
+
+#define MAX\_BUFFER\_SIZE 1024
+```
+
+Kemudian untuk main function saya menggunakan  int sock = 0; untuk Mendeklarasikan variabel **sock** untuk menampung file descriptor soket. **struct sockaddr\_in serv\_addr;**: Mendeklarasikan struktur **sockaddr\_in** untuk menyimpan alamat server dan **char buffer[MAX\_BUFFER\_SIZE] = {0};**: Mendeklarasikan buffer untuk menyimpan pesan.
+
+```c
+int main() {
+
+int sock = 0;
+
+struct sockaddr\_in serv\_addr;
+
+char buffer[MAX\_BUFFER\_SIZE] = {0};
+```
+
+Kemudian membuat socket.
+
+```c
+`    `if ((sock = socket(AF\_INET, SOCK\_STREAM, 0)) < 0) {
+
+`        `perror("Socket creation error");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+```
+
+Langkah selanjutnya Mengatur alamat server dalam struktur **sockaddr\_in**. **AF\_INET**  untuk menunjukkan domain soket untuk IPv4. **htons()** digunakan untuk mengubah urutan byte dari host menjadi urutan byte dari jaringan.
+
+```
+`    `serv\_addr.sin\_family = AF\_INET;
+
+`    `serv\_addr.sin\_port = htons(PORT);
+```
+
+kemudian saya menggunakan **sockaddr\_in** merubah alamat IP server dari string menjadi format biner.
+
+```
+`    `if (inet\_pton(AF\_INET, "127.0.0.1", &serv\_addr.sin\_addr) <= 0) {
+
+`        `perror("Invalid address/ Address not supported");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+```
+
+Selanjutnya menggunakan fungsi connect agar bisa terhubung ke server.
+
+```
+`    `if (connect(sock, (struct sockaddr \*)&serv\_addr, sizeof(serv\_addr)) < 0) {
+
+`        `perror("Connection Failed");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+```
+
+Kemudian membuat kode agar program bisa menerima dan menerima pesan serta fungsi **exit** untuk keluar dari program.
+
+```
+`    `char input[MAX\_BUFFER\_SIZE];
+
+`    `while (1) {
+
+`        `printf("Enter command: ");
+
+`        `fgets(input, MAX\_BUFFER\_SIZE, stdin);
+
+`        `send(sock, input, strlen(input), 0);
+
+
+
+`        `if (strncmp(input, "exit", 4) == 0) {
+
+`            `printf("Exiting...\n");
+
+`            `break;
+
+`        `}
+
+
+
+`        `memset(buffer, 0, sizeof(buffer));
+
+`        `if (recv(sock, buffer, sizeof(buffer), 0) <= 0) {
+
+`            `printf("Server disconnected\n");
+
+`            `break;
+
+`        `}
+
+`        `printf("%s\n", buffer);
+
+`    `}
+```
+
+Kemudian tutup socket.
+
+```
+close(sock);
+
+`    `return 0;
+
+}
+```
+
+
+server.c
+
+Yang pertama saya membuat constraint untuk menentukan alamat server dan port serta ukuran buffer untuk menyimpan pesan serta ukuran untuk judul, genre, status anime dan panjang maksimum panjang anime.
+
+```c
+#define SERVER\_ADDRESS "127.0.0.1"
+
+#define PORT 8080
+
+#define MAX\_COMMAND\_LENGTH 100
+
+#define MAX\_BUFFER\_SIZE 1024
+
+#define MAX\_TITLE\_LENGTH 100
+
+#define MAX\_GENRE\_LENGTH 50
+
+#define MAX\_DAY\_LENGTH 20
+
+#define MAX\_STATUS\_LENGTH 20
+
+#define MAX\_LINE\_LENGTH 255
+```
+
+Kemudian membuat fungsi untuk mencatat semua perubahan di change.log.
+
+```c
+void log\_change(const char \*type, const char \*message) {
+
+`    `time\_t now;
+
+`    `struct tm \*local\_time;
+
+`    `char time\_str[20];
+
+`    `time(&now);
+
+`    `local\_time = localtime(&now);
+
+`    `strftime(time\_str, sizeof(time\_str), "%d/%m/%y", local\_time);
+
+`    `FILE \*fp = fopen("change.log", "a");
+
+`    `if (fp != NULL) {
+
+`        `fprintf(fp, "[%s] [%s] %s\n", time\_str, type, message);
+
+`        `fclose(fp);
+
+`    `}
+```
+
+Kemudian membuat fungsi untuk mengirim pesan di soket.
+
+```
+void send\_response(int client\_socket, const char \*response) {
+
+`    `send(client\_socket, response, strlen(response), 0);
+
+}
+```
+
+Kemudian membuat fungsi untuk membaca file CSV dan menyimpan dalam bentuk string.
+
+```
+void read\_csv\_file(char \*filename, char \*result) {
+
+`    `FILE \*file = fopen(filename, "r");
+
+`    `if (file == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `strcat(result, line);
+
+`    `}
+
+`    `fclose(file);
+
+}
+```
+
+Membuat fungsi untuk menampilkan judul, genre, hari tayang dan status tayang.
+
+```c
+void handle\_show\_all(int client\_socket) {
+
+`    `char result[MAX\_BUFFER\_SIZE] = {0};
+
+`    `read\_csv\_file("myanimelist.csv", result);
+
+`    `send\_response(client\_socket, result);
+
+}
+
+void handle\_show\_genre(char \*genre, int client\_socket) {
+
+`    `char result[MAX\_BUFFER\_SIZE] = {0};
+
+`    `FILE \*file = fopen("myanimelist.csv", "r");
+
+`    `if (file == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `if (strstr(line, genre) != NULL) {
+
+`            `strcat(result, line);
+
+`        `}
+
+`    `}
+
+`    `fclose(file);
+
+`    `send\_response(client\_socket, result);
+
+}
+
+void handle\_show\_day(char \*day, int client\_socket) {
+
+`    `char result[MAX\_BUFFER\_SIZE] = {0};
+
+`    `FILE \*file = fopen("myanimelist.csv", "r");
+
+`    `if (file == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `if (strstr(line, day) != NULL) {
+
+`            `strcat(result, line);
+
+`        `}
+
+`    `}
+
+`    `fclose(file);
+
+`    `send\_response(client\_socket, result);
+
+}
+
+void handle\_show\_status(char \*title, int client\_socket) {
+
+`    `char result[MAX\_BUFFER\_SIZE] = {0};
+
+`    `FILE \*file = fopen("myanimelist.csv", "r");
+
+`    `if (file == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `char \*token = strtok(line, ",");
+
+`        `if (strcmp(token, title) == 0) {
+
+`            `token = strtok(NULL, ",");
+
+`            `strcat(result, token);
+
+`            `break;
+
+`        `}
+
+`    `}
+
+`    `fclose(file);
+
+`    `send\_response(client\_socket, result);
+
+}
+```
+
+Kemudian menambahkan fungsi agar bisa menambahkan anime, mengedit isi file dan menghapus anime yang ada pada file CSV.
+
+```c
+void handle\_add\_anime(char \*anime\_info, int client\_socket) {
+
+`    `FILE \*file = fopen("myanimelist.csv", "a");
+
+`    `if (file == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `fputs(anime\_info, file);
+
+`    `fclose(file);
+
+`    `send\_response(client\_socket, "Anime added successfully.");
+
+`    `log\_change("ADD", "Anime added.");
+
+}
+
+void handle\_edit\_anime(char \*anime\_info, int client\_socket) {
+
+`    `char temp\_file[] = "temp.csv";
+
+`    `FILE \*file = fopen("myanimelist.csv", "r");
+
+`    `FILE \*temp = fopen(temp\_file, "w");
+
+`    `if (file == NULL || temp == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `char \*token = strtok(line, ",");
+
+`        `if (strcmp(token, anime\_info) == 0) {
+
+`            `fputs(anime\_info, temp);
+
+`        `} else {
+
+`            `fputs(line, temp);
+
+`        `}
+
+`    `}
+
+`    `fclose(file);
+
+`    `fclose(temp);
+
+`    `remove("myanimelist.csv");
+
+`    `rename(temp\_file, "myanimelist.csv");
+
+`    `send\_response(client\_socket, "Anime edited successfully.");
+
+`    `log\_change("EDIT", "Anime edited.");
+
+}
+
+void handle\_delete\_anime(char \*title, int client\_socket) {
+
+`    `char temp\_file[] = "temp.csv";
+
+`    `FILE \*file = fopen("myanimelist.csv", "r");
+
+`    `FILE \*temp = fopen(temp\_file, "w");
+
+`    `if (file == NULL || temp == NULL) {
+
+`        `perror("Error opening file");
+
+`        `exit(EXIT\_FAILURE);
+
+`    `}
+
+`    `char line[MAX\_LINE\_LENGTH];
+
+`    `while (fgets(line, sizeof(line), file)) {
+
+`        `char \*token = strtok(line, ",");
+
+`        `if (strcmp(token, title) != 0) {
+
+`            `fputs(line, temp);
+
+`        `}
+
+`    `}
+
+`    `fclose(file);
+
+`    `fclose(temp);
+
+`    `remove("myanimelist.csv");
+
+`    `rename(temp\_file, "myanimelist.csv");
+
+`    `send\_response(client\_socket, "Anime deleted successfully.");
+
+`    `log\_change("DEL", "Anime deleted.");
+
+}
+```
+
+Menambahkan fungsi untuk menentukan tindakan sesuai keinginan pengguna.
+
+```c
+void handle\_command(char \*command, int client\_socket) {
+
+`    `char response[MAX\_BUFFER\_SIZE] = {0};
+
+`    `if (strncmp(command, "SHOW ALL", 8) == 0) {
+
+`        `handle\_show\_all(client\_socket);
+
+`    `} else if (strncmp(command, "SHOW GENRE", 10) == 0) {
+
+`        `char \*genre = strtok(command, " ");
+
+`        `genre = strtok(NULL, " ");
+
+`        `handle\_show\_genre(genre, client\_socket);
+
+`    `} else if (strncmp(command, "SHOW DAY", 8) == 0) {
+
+`        `char \*day = strtok(command, " ");
+
+`        `day = strtok(NULL, " ");
+
+`        `handle\_show\_day(day, client\_socket);
+
+`    `} else if (strncmp(command, "SHOW STATUS", 11) == 0) {
+
+`        `char \*title = strtok(command, " ");
+
+`        `title = strtok(NULL, " ");
+
+`        `handle\_show\_status(title, client\_socket);
+
+`    `} else if (strncmp(command, "ADD", 3) == 0) {
+
+`        `char \*anime\_info = strtok(command, " ");
+
+`        `anime\_info = strtok(NULL, "\n");
+
+`        `handle\_add\_anime(anime\_info, client\_socket);
+
+`    `} else if (strncmp(command, "EDIT", 4) == 0) {
+
+`        `char \*anime\_info = strtok(command, " ");
+
+`        `anime\_info = strtok(NULL, "\n");
+
+`        `handle\_edit\_anime(anime\_info, client\_socket);
+
+`    `} else if (strncmp(command, "DELETE", 6) == 0) {
+
+`        `char \*title = strtok(command, " ");
+
+`        `title = strtok(NULL, "\n");
+
+`        `handle\_delete\_anime(title, client\_socket);
+
+`    `} else if (strncmp(command, "exit", 4) == 0) {
+
+`        `snprintf(response, sizeof(response), "Exiting program...");
+
+`        `send\_response(client\_socket, response);
+
+`    `} else {
+
+`        `snprintf(response, sizeof(response), "Invalid Command");
+
+`        `send\_response(client\_socket, response);
+
+`    `}
+
+}
+```
+
+Kemudian membuat main function
+
+## Screenshots
+Hasil output server:
+<img src="./img/oserver.jpeg" />
+Hasil output client:
+<img src="./img/oclient.jpeg" />
